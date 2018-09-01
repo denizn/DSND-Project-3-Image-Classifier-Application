@@ -63,7 +63,7 @@ def process_image(image):
     return torch.from_numpy(np_image)
 
 # : Process a PIL image for use in a PyTorch model    
-im = Image.open('flowers/test/28/image_05230.jpg')
+im = Image.open(image_path)
 processed_im = process_image(im)
 
 def imshow(image, ax=None, title=None):

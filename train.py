@@ -1,21 +1,15 @@
 import matplotlib.pyplot as plt
 from torchvision import transforms, datasets
 from torch.utils.data import DataLoader
-from torchvision import models
 from torchvision.models import vgg19, densenet121, vgg16
 from torchvision import datasets, models, transforms
 import torchvision
 from torch import nn, optim
 import torch
 import torch.nn.functional as F
-from torch.optim import lr_scheduler
 from collections import OrderedDict
-import time
-import json
-import copy
 import numpy as np
 from PIL import Image
-from torch.autograd import Variable
 import argparse
 
 parser = argparse.ArgumentParser(description='Train a model to recognize flowers')

@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
 from torchvision import transforms, datasets
 from torch.utils.data import DataLoader
 from torchvision import models
@@ -14,23 +13,22 @@ from collections import OrderedDict
 import time
 import json
 import copy
-import seaborn as sns
 import numpy as np
 from PIL import Image
 from torch.autograd import Variable
 import argparse
-import json
-
-with open('cat_to_name.json', 'r') as f:
-    cat_to_name = json.load(f)
 
 parser = argparse.ArgumentParser(description='Predict the type of a flower')
 parser.add_argument('--checkpoint', type=str, help='Path to checkpoint' , default='checkpoint.pth')
 parser.add_argument('--image_path', type=str, help='Path to file' , default='flowers/test/28/image_05230.jpg')
 parser.add_argument('--gpu', type=bool, default=True, help='Whether to use GPU during inference or not')
 parser.add_argument('--topk', type=int, help='Number of k to predict' , default=0)
+parser.add_argument('--cat_to_name_json', type=str, help='Json file to load for class values to name conversion' , default='cat_to_name.json')
 args = parser.parse_args()
 
+
+with open(args.cat_to_name_json, 'r') as f:
+    cat_to_name = json.load(f)
 image_path = args.image_path
 device = 'cuda' if args.gpu else 'cpu'
 
@@ -66,29 +64,6 @@ def process_image(image):
 im = Image.open(image_path)
 processed_im = process_image(im)
 
-def imshow(image, ax=None, title=None):
-    """Imshow for Tensor."""
-    if ax is None:
-        fig, ax = plt.subplots()
-    
-    # PyTorch tensors assume the color channel is the first dimension
-    # but matplotlib assumes is the third dimension
-    image = image.numpy().transpose((1, 2, 0))
-    
-    # Undo preprocessing
-    mean = np.array([0.485, 0.456, 0.406])
-    std = np.array([0.229, 0.224, 0.225])
-    image = std * image + mean
-    
-    # Image needs to be clipped between 0 and 1 or it looks like noise when displayed
-    image = np.clip(image, 0, 1)
-    
-    ax.imshow(image)
-    
-    return ax
-
-imshow(processed_im)
-
 def predict(image_path, model, topk=5):
     ''' Predict the class (or classes) of an image using a trained deep learning model.
     '''
@@ -110,9 +85,6 @@ def predict(image_path, model, topk=5):
         
     return probs, flower_names
 
-import matplotlib.image as mpimg
-# : Display an image along with the top 5 classes
-im = process_image(Image.open(image_path))
 if args.topk:
     probs, flower_names = predict(image_path, model, args.topk)
     print('Probabilities of top {} flowers:'.format(args.topk))

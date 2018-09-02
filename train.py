@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
 from torchvision import transforms, datasets
 from torch.utils.data import DataLoader
 from torchvision import models
@@ -14,12 +13,10 @@ from collections import OrderedDict
 import time
 import json
 import copy
-import seaborn as sns
 import numpy as np
 from PIL import Image
 from torch.autograd import Variable
 import argparse
-import json
 
 parser = argparse.ArgumentParser(description='Train a model to recognize flowers')
 parser.add_argument('data_directory', type=str, help='Directory containing data' , default='data_dir')
@@ -27,11 +24,10 @@ parser.add_argument('--gpu', type=bool, default=True, help='Whether to use GPU d
 parser.add_argument('--arch', type=str, default='vgg19', help='Choose the architecture between VGG and Densenet')
 parser.add_argument('--epochs', type=str, default=10, help='Choose number of epochs to train for')
 parser.add_argument('--lr', type=str, default=0.0001, help='Choose learning rate to use for training')
+parser.add_argument('--hidden_sizes', type=list, default=[4096,1024], help='Input list of hidden layer sizes')
 args = parser.parse_args()
 
 #ARGS HERE
-arch = 'densenet121'
-#arch = 'vgg19' alternatively
 epochs = args.epochs
 device = 'cuda' if args.gpu == True else 'cpu'
 
@@ -76,9 +72,6 @@ dataloaders = {'train' : DataLoader(image_datasets['train'], batch_size=64, shuf
                'test' : DataLoader(image_datasets['test'], batch_size=32)
               }
 
-with open('cat_to_name.json', 'r') as f:
-    cat_to_name = json.load(f)
-
 def validation(model, testloader, criterion, device):
     test_loss = 0
     accuracy = 0
@@ -96,17 +89,26 @@ def validation(model, testloader, criterion, device):
 
     return test_loss/len(testloader), accuracy/len(testloader)
 
-classifier = nn.Sequential(OrderedDict([
-    ('fc1', nn.Linear((25088 if arch == 'vgg19' else 1024),4096)),
-    ('relu1', nn.ReLU()),
-    ('dropout1', nn.Dropout(0.2)),
-    ('fc2', nn.Linear(4096,1024)),
-    ('relu2', nn. ReLU()),
-    ('dropout2', nn.Dropout(0.2)),
-    ('fc3', nn.Linear(1024,102)),
-    ('output', nn.LogSoftmax(dim=1))]))
+input_size = 25088 if args.arch == 'vgg19' else 1024
+hidden_sizes = [4096, 1024]
+output_size = 102
 
-model = getattr(models, arch)(pretrained=True)
+hidden_layer_sizes = zip(hidden_sizes[:-1], hidden_sizes[1:])
+
+layers_map = [('fc1', nn.Linear(input_size, hidden_sizes[0])),
+                    ('relu1', nn.ReLU()),
+                    ('dropout1', nn.Dropout(0.2))]
+count = 1
+for h1, h2 in hidden_layer_sizes:
+    count +=1
+    layers_map.append(('fc'+str(count), nn.Linear(h1,h2)))
+    layers_map.append(('relu'+str(count), nn.ReLU()))
+    layers_map.append(('dropout'+str(count), nn.Dropout(0.2)))
+layers_map.append(('fc'+str(count+1), nn.Linear(hidden_sizes[-1], output_size)))
+layers_map.append(('output', nn.LogSoftmax(dim=1)))
+classifier = nn.Sequential(OrderedDict(layers_map))
+
+model = getattr(models, args.arch)(pretrained=True)
 
 for param in model.parameters():
     param.requires_grad = False
@@ -164,7 +166,7 @@ print("Test Loss : {:.4f}".format(test_loss),
 
 # Save the checkpoint
 model.class_to_idx = image_datasets['train'].class_to_idx
-checkpoint = {'arch' : arch,
+checkpoint = {'arch' : args.arch,
               'classifier' : model.classifier,
               'state_dict' : model.state_dict(),
               'optimizer' : optimizer,

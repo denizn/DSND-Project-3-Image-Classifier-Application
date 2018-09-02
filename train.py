@@ -163,7 +163,6 @@ model.class_to_idx = image_datasets['train'].class_to_idx
 checkpoint = {'arch' : args.arch,
               'classifier' : model.classifier,
               'state_dict' : model.state_dict(),
-              'optimizer' : optimizer,
               'optimizer_dict' : optimizer.state_dict(),
               'epochs' : epochs,
               'class_to_idx' : model.class_to_idx}

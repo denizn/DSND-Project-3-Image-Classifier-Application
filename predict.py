@@ -35,7 +35,7 @@ def load_checkpoint(checkpoint):
     for param in model.parameters():
         param.requires_grad = False
     model.load_state_dict(checkpoint['state_dict'])
-    optimizer = checkpoint['optimizer']
+    optimizer = optim.Adam()
     optimizer.load_state_dict(checkpoint['optimizer_dict'])
     return model, checkpoint
 

@@ -1,16 +1,10 @@
-import matplotlib.pyplot as plt
-from torchvision import transforms, datasets
-from torchvision.models import vgg19, densenet121, vgg16
-from torchvision import datasets, models, transforms
-import torchvision
-from torch import nn, optim
-import torch
-import torch.nn.functional as F
-from collections import OrderedDict
-import json
-import numpy as np
-from PIL import Image
 import argparse
+import json
+import torch
+from PIL import Image
+from util import process_image, load_checkpoint
+from collections import OrderedDict
+import numpy as np
 
 parser = argparse.ArgumentParser(description='Predict the type of a flower')
 parser.add_argument('--checkpoint', type=str, help='Path to checkpoint' , default='checkpoint.pth')
@@ -20,45 +14,18 @@ parser.add_argument('--topk', type=int, help='Number of k to predict' , default=
 parser.add_argument('--cat_to_name_json', type=str, help='Json file to load for class values to name conversion' , default='cat_to_name.json')
 args = parser.parse_args()
 
-
+image_path = args.image_path
 with open(args.cat_to_name_json, 'r') as f:
     cat_to_name = json.load(f)
-image_path = args.image_path
-device = 'cuda' if args.gpu else 'cpu'
 
-# : Write a function that loads a checkpoint and rebuilds the model
-
-def load_checkpoint(checkpoint):
-    checkpoint = torch.load(args.checkpoint)
-    model = getattr(torchvision.models, checkpoint['arch'])(pretrained=True)
-    model.classifier = checkpoint['classifier']
-    for param in model.parameters():
-        param.requires_grad = False
-    model.load_state_dict(checkpoint['state_dict'])
-    optimizer = checkpoint['optimizer']
-    optimizer.load_state_dict(checkpoint['optimizer_dict'])
-    return model, checkpoint
-
+# : Load Checkpoint
 model, checkpoint = load_checkpoint(args.checkpoint)
-
-def process_image(image):
-    image = image.resize((round(256*image.size[0]/image.size[1]) if image.size[0]>image.size[1] else 256,
-                          round(256*image.size[1]/image.size[0]) if image.size[1]>image.size[0] else 256))  
-    
-    image = image.crop((image.size[0]/2-224/2, image.size[1]/2-224/2, image.size[0]/2+224/2, image.size[1]/2+224/2))
-
-    np_image = (np.array(image)/255-[0.485,0.456,0.406])/[0.229, 0.224, 0.225]
-    np_image = np_image.transpose((2,0,1))
-    ''' Scales, crops, and normalizes a PIL image for a PyTorch model,
-        returns an Numpy array
-    '''
-    return torch.from_numpy(np_image)
 
 # : Process a PIL image for use in a PyTorch model    
 im = Image.open(image_path)
 processed_im = process_image(im)
 
-def predict(image_path, model, topk=5):
+def predict(image_path, model, topk=5, device='cuda'):
     ''' Predict the class (or classes) of an image using a trained deep learning model.
     '''
     # : Implement the code to predict the class from an image file
@@ -79,8 +46,9 @@ def predict(image_path, model, topk=5):
         
     return probs, flower_names
 
+# : Predict type and print
 if args.topk:
-    probs, flower_names = predict(image_path, model, args.topk)
+    probs, flower_names = predict(image_path, model, args.topk,'cuda' if args.gpu else 'cpu')
     print('Probabilities of top {} flowers:'.format(args.topk))
     for i in range(args.topk):
         print('{} : {:.2f}'.format(flower_names[i],probs[i]))

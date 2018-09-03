@@ -1,4 +1,4 @@
-import matplotlib.pyplot as plt
+import numpy as np
 from torchvision import transforms, datasets
 from torch.utils.data import DataLoader
 from torchvision.models import vgg19, densenet121, vgg16
@@ -8,9 +8,8 @@ from torch import nn, optim
 import torch
 import torch.nn.functional as F
 from collections import OrderedDict
-import numpy as np
-from PIL import Image
 import argparse
+from util import validation
 
 parser = argparse.ArgumentParser(description='Train a model to recognize flowers')
 parser.add_argument('data_directory', type=str, help='Directory containing data' , default='data_dir')
@@ -21,8 +20,6 @@ parser.add_argument('--lr', type=str, default=0.0001, help='Choose learning rate
 parser.add_argument('--hidden_sizes', type=list, default=[4096,1024], help='Input list of hidden layer sizes')
 args = parser.parse_args()
 
-#ARGS HERE
-epochs = args.epochs
 device = 'cuda' if args.gpu == True else 'cpu'
 
 train_dir = args.data_directory + '/train'
@@ -53,7 +50,6 @@ data_transforms = {'train' : transforms.Compose([transforms.RandomRotation(30),
                                                ])
                   }
                                                 
-
 # : Load the datasets with ImageFolder
 image_datasets = {'train' : datasets.ImageFolder(train_dir, transform=data_transforms['train']),
                   'valid' : datasets.ImageFolder(valid_dir, transform=data_transforms['valid']),
@@ -65,23 +61,6 @@ dataloaders = {'train' : DataLoader(image_datasets['train'], batch_size=64, shuf
                'valid' : DataLoader(image_datasets['valid'], batch_size=32),
                'test' : DataLoader(image_datasets['test'], batch_size=32)
               }
-
-def validation(model, testloader, criterion, device):
-    test_loss = 0
-    accuracy = 0
-    model.to(device)
-    model.eval()
-    for inputs, labels in testloader:
-        inputs, labels = inputs.to(device), labels.to(device)
-
-        output = model(inputs)
-        test_loss += criterion(output, labels).item()
-
-        ps = torch.exp(output)
-        equality = (labels.data == ps.max(dim=1)[1])
-        accuracy += equality.type(torch.FloatTensor).mean()
-
-    return test_loss/len(testloader), accuracy/len(testloader)
 
 input_size = 25088 if args.arch == 'vgg19' else 1024
 hidden_sizes = [4096, 1024]
@@ -121,7 +100,7 @@ model.train()
 print_every = 40
 steps = 0
 
-for epoch in range(epochs):
+for epoch in range(args.epochs):
     accuracy = 0
     running_loss = 0.0
     for inputs, labels in dataloaders['train']:
@@ -144,7 +123,7 @@ for epoch in range(epochs):
         accuracy += equality.type(torch.FloatTensor).mean()
         if steps % print_every == 0:
             test_loss, test_accuracy = validation(model, dataloaders['valid'], criterion, device)
-            print("Epoch: {}/{}".format(epoch+1, epochs),
+            print("Epoch: {}/{}".format(epoch+1, args.epochs),
                   "Train Loss: {:.4f}".format(running_loss/print_every),
                   "Train Accuracy : {:.4f}".format(accuracy/print_every),
                   "Validation Loss : {:.4f}".format(test_loss),
@@ -153,7 +132,7 @@ for epoch in range(epochs):
             accuracy = 0
             running_loss = 0
 
-# Do validation on the test set
+# Do validation on the test set, print results
 test_loss, test_accuracy = validation(model, dataloaders['test'], criterion, device)
 print("Test Loss : {:.4f}".format(test_loss),
     "Test Accuracy : {:.4f}".format(test_accuracy))
@@ -165,7 +144,7 @@ checkpoint = {'arch' : args.arch,
               'state_dict' : model.state_dict(),
               'optimizer' : optimizer,
               'optimizer_dict' : optimizer.state_dict(),
-              'epochs' : epochs,
+              'epochs' : args.epochs,
               'class_to_idx' : model.class_to_idx}
 
 torch.save(checkpoint, 'checkpoint.pth')
